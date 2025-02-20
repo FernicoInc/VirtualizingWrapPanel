@@ -12,7 +12,7 @@ using WpfToolkit.Controls;
 
 namespace VirtualizingWrapPanelSamples
 {
-    class MainWindowModel : INotifyPropertyChanged
+    internal class MainWindowModel : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -28,6 +28,7 @@ namespace VirtualizingWrapPanelSamples
         public Orientation[] AvailableOrientations { get; } = (Orientation[])Enum.GetValues(typeof(Orientation));
         public SpacingMode[] AvailableSpacingModes { get; } = (SpacingMode[])Enum.GetValues(typeof(SpacingMode));
         public ScrollUnit[] AvailableScrollUnits { get; } = (ScrollUnit[])Enum.GetValues(typeof(ScrollUnit));
+        public HorizontalAlignment[] AvailableHorizontalAlignments { get; } = (HorizontalAlignment[])Enum.GetValues(typeof(HorizontalAlignment));
         public ScrollBarVisibility[] AvailableScrollBarVisibilities { get; } = (ScrollBarVisibility[])Enum.GetValues(typeof(ScrollBarVisibility));
 
         public Orientation Orientation { get => orientation; set => SetField(ref orientation, value); }
@@ -36,6 +37,7 @@ namespace VirtualizingWrapPanelSamples
         public VirtualizationCacheLength CacheLength { get => cacheLength; set => SetField(ref cacheLength, value); }
         public VirtualizationMode VirtualizationMode { get => virtualizationMode; set => SetField(ref virtualizationMode, value); }
         public SpacingMode SpacingMode { get => spacingMode; set => SetField(ref spacingMode, value); }
+        public HorizontalAlignment HorizontalAlignmentMode { get => horizontalAlignmentMode; set => SetField(ref horizontalAlignmentMode, value); }
         public bool StretchItems { get => stretchItems; set => SetField(ref stretchItems, value); }
         public ScrollUnit ScrollUnit { get => scrollUnit; set => SetField(ref scrollUnit, value); }
         public bool IsScrollByPixel => ScrollUnit == ScrollUnit.Pixel;
@@ -47,10 +49,6 @@ namespace VirtualizingWrapPanelSamples
         public ScrollBarVisibility HorizontalScrollBarVisibility { get => horizontalScrollBarVisibility; set => SetField(ref horizontalScrollBarVisibility, value); }
         public ScrollBarVisibility VerticalScrollBarVisibility { get => verticalScrollBarVisibility; set => SetField(ref verticalScrollBarVisibility, value); }
         public Size ItemSize { get => itemSize; set => SetField(ref itemSize, value); }
-        public bool IsGrouping { get => isGrouping; set => SetField(ref isGrouping, value); }
-        public bool IsGridLayoutEnabled { get => isGridLayoutEnabled; set => SetField(ref isGridLayoutEnabled, value); }
-        public bool UseLazyLoadingItems { get => useLazyLoadingItems; set => SetField(ref useLazyLoadingItems, value); }
-        public bool UseItemSizeProvider { get => useItemSizeProvider; set => SetField(ref useItemSizeProvider, value); }
 
         public bool IsWrappingKeyboardNavigationEnabled { get => isWrappingKeyboardNavigationEnabled; set => SetField(ref isWrappingKeyboardNavigationEnabled, value); }
 
@@ -67,6 +65,7 @@ namespace VirtualizingWrapPanelSamples
         private Orientation orientation = Orientation.Horizontal;
         private Orientation orientationGroupPanel = Orientation.Vertical;
         private SpacingMode spacingMode = SpacingMode.Uniform;
+        private HorizontalAlignment horizontalAlignmentMode = HorizontalAlignment.Stretch;
         private bool stretchItems = false;
         private ScrollUnit scrollUnit = ScrollUnit.Pixel;
         private double scrollLineDelta = 16.0;
@@ -76,13 +75,8 @@ namespace VirtualizingWrapPanelSamples
         private ScrollBarVisibility horizontalScrollBarVisibility = ScrollBarVisibility.Auto;
         private ScrollBarVisibility verticalScrollBarVisibility = ScrollBarVisibility.Auto;
         private Size itemSize = Size.Empty;
-        private bool isGrouping = false;
-        private bool isGridLayoutEnabled = true;
-        private bool useLazyLoadingItems = false;
-        private bool useItemSizeProvider = false;
 
         private bool isWrappingKeyboardNavigationEnabled = false;
-
         private readonly Random random = new Random();
 
         private readonly DispatcherTimer memoryUsageRefreshTimer;
@@ -104,16 +98,16 @@ namespace VirtualizingWrapPanelSamples
 
         public void InsertItemAtRandomPosition()
         {
-            int number = Items.Any() ? Items.Select(item => item.Number).Max() + 1 : 1;
+            var number = Items.Any() ? Items.Select(item => item.Number).Max() + 1 : 1;
             Items.Add(new TestItem("Group " + random.Next(50), number));
         }
 
         public void AddItems()
         {
-            int newCount = Items.Count + 5000;
-            for (int i = Items.Count; i < newCount; i++)
+            var newCount = Items.Count + 5000;
+            for (var i = Items.Count; i < newCount; i++)
             {
-                Items.Add(new TestItem("Group " + i / 100, i + 1));
+                Items.Add(new TestItem("Group " + (i / 100), i + 1));
             }
         }
 
@@ -121,7 +115,7 @@ namespace VirtualizingWrapPanelSamples
         {
             if (Items.Any())
             {
-                int index = random.Next(Items.Count);
+                var index = random.Next(Items.Count);
                 Items.RemoveAt(index);
             }
         }
@@ -139,17 +133,17 @@ namespace VirtualizingWrapPanelSamples
         public void RandomizeItems()
         {
             Items.Clear();
-            int count = random.Next(500, 5000);
-            for (int i = 0; i < count; i++)
+            var count = random.Next(500, 5000);
+            for (var i = 0; i < count; i++)
             {
-                Items.Add(new TestItem("Group " + i / 100, i + 1));
+                Items.Add(new TestItem("Group " + (i / 100), i + 1));
             }
         }
 
         public void RefreshMemoryUsage()
         {
             GC.GetTotalMemory(true);
-            using (Process process = Process.GetCurrentProcess())
+            using (var process = Process.GetCurrentProcess())
             {
                 MemoryUsageInMB = process.PrivateMemorySize64 / (1024 * 1024);
             }
