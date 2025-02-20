@@ -61,12 +61,12 @@ internal class ItemContainerManager
     public ItemContainerManager(ItemContainerGenerator itemContainerGenerator, Action<UIElement> addInternalChild, Action<UIElement> removeInternalChild)
     {
         this.itemContainerGenerator = itemContainerGenerator;
-        this.recyclingItemContainerGenerator = itemContainerGenerator;
+        recyclingItemContainerGenerator = itemContainerGenerator;
         this.addInternalChild = addInternalChild;
         this.removeInternalChild = removeInternalChild;
         itemContainerGenerator.ItemsChanged += ItemContainerGenerator_ItemsChanged;
     }
-    
+
     public void OnClearChildren()
     {
         realizedContainers.Clear();
@@ -85,7 +85,7 @@ internal class ItemContainerManager
         var generatorPosition = recyclingItemContainerGenerator.GeneratorPositionFromIndex(itemIndex);
         using (recyclingItemContainerGenerator.StartAt(generatorPosition, GeneratorDirection.Forward))
         {
-            var container = (UIElement)recyclingItemContainerGenerator.GenerateNext(out bool isNewContainer);
+            var container = (UIElement)recyclingItemContainerGenerator.GenerateNext(out var isNewContainer);
 
             cachedContainers.Remove(container);
             realizedContainers.Add(item, container);
@@ -107,11 +107,17 @@ internal class ItemContainerManager
 
     public void Virtualize(UIElement container)
     {
-        int itemIndex = FindItemIndexOfContainer(container);
+        var itemIndex = FindItemIndexOfContainer(container);
 
         if (itemIndex == -1) // the item is already virtualized (can happen when grouping)
         {
-            realizedContainers.Remove(realizedContainers.Where(entry => entry.Value == container).Single().Key);
+            var itemToRemove = realizedContainers.Where(entry => entry.Value == container).FirstOrDefault();
+            if (itemToRemove.Key is null)
+            {
+                return;
+            }
+
+            realizedContainers.Remove(itemToRemove.Key);
 
             if (IsRecycling)
             {
@@ -187,7 +193,7 @@ internal class ItemContainerManager
     {
         element.InvalidateMeasure();
 
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(element); i++)
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(element); i++)
         {
             if (VisualTreeHelper.GetChild(element, i) is UIElement child)
             {

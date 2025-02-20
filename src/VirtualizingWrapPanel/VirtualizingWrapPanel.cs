@@ -106,7 +106,14 @@ namespace WpfToolkit.Controls
                     _itemContainerManager = new ItemContainerManager(
                         ItemContainerGenerator,
                         AddInternalChild,
-                        child => RemoveInternalChildRange(InternalChildren.IndexOf(child), 1));
+                        child =>
+                        {
+                            var index = InternalChildren.IndexOf(child);
+                            if (index > -1)
+                            {
+                                RemoveInternalChildRange(index, 1);
+                            }
+                        });
                     _itemContainerManager.ItemsChanged += ItemContainerManager_ItemsChanged;
                 }
                 return _itemContainerManager;
@@ -163,7 +170,7 @@ namespace WpfToolkit.Controls
 
             if (ItemsOwner is IHierarchicalVirtualizationAndScrollInfo groupItem)
             {
-                Rect viewport = GetViewportFromGroupItem(groupItem);
+                var viewport = GetViewportFromGroupItem(groupItem);
                 ScrollOffset = viewport.Location;
                 newViewportSize = viewport.Size;
                 cacheLength = groupItem.Constraints.CacheLength;
@@ -219,21 +226,21 @@ namespace WpfToolkit.Controls
 
             innerSpacing = 0;
             outerSpacing = 0;
-            bool hierarchical = ItemsOwner is IHierarchicalVirtualizationAndScrollInfo;
-            double x = startItemOffsetX + GetX(ScrollOffset);
-            double y = hierarchical ? startItemOffsetY : startItemOffsetY - GetY(ScrollOffset);
+            var hierarchical = ItemsOwner is IHierarchicalVirtualizationAndScrollInfo;
+            var x = startItemOffsetX + GetX(ScrollOffset);
+            var y = hierarchical ? startItemOffsetY : startItemOffsetY - GetY(ScrollOffset);
             double rowHeight = 0;
             var rowChilds = new List<UIElement>();
             var childSizes = new List<Size>();
 
-            for (int i = startItemIndex; i <= endItemIndex; i++)
+            for (var i = startItemIndex; i <= endItemIndex; i++)
             {
                 var item = Items[i];
                 var child = ItemContainerManager.RealizedContainers[item];
 
-                Size? upfrontKnownItemSize = GetUpfrontKnownItemSize(item);
+                var upfrontKnownItemSize = GetUpfrontKnownItemSize(item);
 
-                Size childSize = upfrontKnownItemSize ?? itemSizesCache[item];
+                var childSize = upfrontKnownItemSize ?? itemSizesCache[item];
 
                 if (rowChilds.Count > 0 && x + GetWidth(childSize) > GetWidth(finalSize))
                 {
@@ -309,6 +316,22 @@ namespace WpfToolkit.Controls
                     ScrollOffset = new Point(0, 0);
                 }
             }
+
+            // If we are invisible, then we need to invalidate all else the virtualization creates an blank item and errors occur when the ItemContainerManager tries to remove an item
+            if (IsVisible == false)
+            {
+                OnClearChildren();
+                foreach (var child in InternalChildren.Cast<UIElement>())
+                {
+                    child.InvalidateArrange();
+                    child.InvalidateMeasure();
+                    child.InvalidateVisual();
+                }
+
+                InvalidateArrange();
+                InvalidateMeasure();
+                InvalidateVisual();
+            }
         }
 
         private void Orientation_Changed()
@@ -338,10 +361,10 @@ namespace WpfToolkit.Controls
 
         private Rect GetViewportFromGroupItem(IHierarchicalVirtualizationAndScrollInfo groupItem)
         {
-            double viewportX = groupItem.Constraints.Viewport.Location.X;
-            double viewportY = groupItem.Constraints.Viewport.Location.Y;
-            double viewportWidth = Math.Max(groupItem.Constraints.Viewport.Size.Width, 0);
-            double viewporteHeight = Math.Max(groupItem.Constraints.Viewport.Size.Height, 0);
+            var viewportX = groupItem.Constraints.Viewport.Location.X;
+            var viewportY = groupItem.Constraints.Viewport.Location.Y;
+            var viewportWidth = Math.Max(groupItem.Constraints.Viewport.Size.Width, 0);
+            var viewporteHeight = Math.Max(groupItem.Constraints.Viewport.Size.Height, 0);
 
             if (VisualTreeHelper.GetParent(this) is ItemsPresenter itemsPresenter)
             {
@@ -360,7 +383,7 @@ namespace WpfToolkit.Controls
             if (Orientation == Orientation.Horizontal)
             {
                 viewportY = Math.Max(0, viewportY - groupItem.HeaderDesiredSizes.PixelSize.Height);
-                double visibleHeaderHeight = Math.Max(0, groupItem.HeaderDesiredSizes.PixelSize.Height - Math.Max(0, groupItem.Constraints.Viewport.Location.Y));
+                var visibleHeaderHeight = Math.Max(0, groupItem.HeaderDesiredSizes.PixelSize.Height - Math.Max(0, groupItem.Constraints.Viewport.Location.Y));
                 viewporteHeight = Math.Max(0, viewporteHeight - visibleHeaderHeight);
             }
             else
@@ -384,7 +407,7 @@ namespace WpfToolkit.Controls
         {
             if (bringIntoViewContainer is not null)
             {
-                bool hierarchical = ItemsOwner is IHierarchicalVirtualizationAndScrollInfo;
+                var hierarchical = ItemsOwner is IHierarchicalVirtualizationAndScrollInfo;
                 var offset = FindItemOffset(bringIntoViewItemIndex);
                 offset = new Point(offset.X - ScrollOffset.X, hierarchical ? offset.Y : offset.Y - ScrollOffset.Y);
                 var size = GetUpfrontKnownItemSize(Items[bringIntoViewItemIndex]) ?? bringIntoViewContainer.DesiredSize;
@@ -402,27 +425,18 @@ namespace WpfToolkit.Controls
 
         private Size GetAverageItemSize()
         {
-            if (ItemSize != Size.Empty)
-            {
-                return ItemSize;
-            }
-            else if (!AllowDifferentSizedItems)
-            {
-                return sizeOfFirstItem ?? FallbackItemSize;
-            }
-            else
-            {
-                return averageItemSizeCache ??= CalculateAverageItemSize();
-            }
+            return ItemSize != Size.Empty
+                ? ItemSize
+                : !AllowDifferentSizedItems ? sizeOfFirstItem ?? FallbackItemSize : (averageItemSizeCache ??= CalculateAverageItemSize());
         }
 
         private Point FindItemOffset(int itemIndex)
         {
             double x = 0, y = 0, rowHeight = 0;
 
-            for (int i = 0; i <= itemIndex; i++)
+            for (var i = 0; i <= itemIndex; i++)
             {
-                Size itemSize = GetAssumedItemSize(Items[i]);
+                var itemSize = GetAssumedItemSize(Items[i]);
 
                 if (x != 0 && x + GetWidth(itemSize) > GetWidth(ViewportSize))
                 {
@@ -470,7 +484,7 @@ namespace WpfToolkit.Controls
                 return;
             }
 
-            double startOffsetY = DetermineStartOffsetY();
+            var startOffsetY = DetermineStartOffsetY();
 
             if (startOffsetY <= 0)
             {
@@ -483,12 +497,12 @@ namespace WpfToolkit.Controls
             startItemIndex = -1;
 
             double x = 0, y = 0, rowHeight = 0;
-            int indexOfFirstRowItem = 0;
+            var indexOfFirstRowItem = 0;
 
-            int itemIndex = 0;
+            var itemIndex = 0;
             foreach (var item in Items)
             {
-                Size itemSize = GetAssumedItemSize(item);
+                var itemSize = GetAssumedItemSize(item);
 
                 if (x + GetWidth(itemSize) > GetWidth(ViewportSize) && x != 0)
                 {
@@ -539,25 +553,25 @@ namespace WpfToolkit.Controls
                 return;
             }
 
-            int newEndItemIndex = Items.Count - 1;
-            bool endItemIndexFound = false;
+            var newEndItemIndex = Items.Count - 1;
+            var endItemIndexFound = false;
 
-            double endOffsetY = DetermineEndOffsetY();
+            var endOffsetY = DetermineEndOffsetY();
 
-            double x = startItemOffsetX;
-            double y = startItemOffsetY;
+            var x = startItemOffsetX;
+            var y = startItemOffsetY;
             double rowHeight = 0;
 
             knownExtendX = 0;
 
-            for (int itemIndex = startItemIndex; itemIndex <= newEndItemIndex; itemIndex++)
+            for (var itemIndex = startItemIndex; itemIndex <= newEndItemIndex; itemIndex++)
             {
                 if (itemIndex == 0)
                 {
                     sizeOfFirstItem = null;
                 }
 
-                object item = Items[itemIndex];
+                var item = Items[itemIndex];
 
                 var container = ItemContainerManager.Realize(itemIndex);
 
@@ -567,7 +581,7 @@ namespace WpfToolkit.Controls
                     bringIntoViewContainer = null;
                 }
 
-                Size? upfrontKnownItemSize = GetUpfrontKnownItemSize(item);
+                var upfrontKnownItemSize = GetUpfrontKnownItemSize(item);
 
                 container.Measure(upfrontKnownItemSize ?? InfiniteSize);
 
@@ -614,7 +628,7 @@ namespace WpfToolkit.Controls
 
         private Size DetermineContainerSize(object item, UIElement container, Size? upfrontKnownItemSize)
         {
-            Size containerSize = upfrontKnownItemSize ?? container.DesiredSize;
+            var containerSize = upfrontKnownItemSize ?? container.DesiredSize;
 
             if (AllowDifferentSizedItems)
             {
@@ -629,7 +643,7 @@ namespace WpfToolkit.Controls
             var containers = ItemContainerManager.RealizedContainers.Values.ToList();
             foreach (var container in containers.Where(container => container != bringIntoViewContainer))
             {
-                int itemIndex = ItemContainerManager.FindItemIndexOfContainer(container);
+                var itemIndex = ItemContainerManager.FindItemIndexOfContainer(container);
 
                 if (itemIndex < startItemIndex)
                 {
@@ -643,7 +657,7 @@ namespace WpfToolkit.Controls
             var containers = ItemContainerManager.RealizedContainers.Values.ToList();
             foreach (var container in containers.Where(container => container != bringIntoViewContainer))
             {
-                int itemIndex = ItemContainerManager.FindItemIndexOfContainer(container);
+                var itemIndex = ItemContainerManager.FindItemIndexOfContainer(container);
 
                 if (itemIndex > endItemIndex)
                 {
@@ -654,21 +668,9 @@ namespace WpfToolkit.Controls
 
         private void UpdateExtent()
         {
-            Size extent;
-
-            if (startItemIndex == -1)
-            {
-                extent = new Size(0, 0);
-            }
-            else if (!AllowDifferentSizedItems)
-            {
-                extent = CalculateExtentForSameSizedItems();
-            }
-            else
-            {
-                extent = CalculateExtentForDifferentSizedItems();
-            }
-
+            var extent = startItemIndex == -1
+                ? new Size(0, 0)
+                : !AllowDifferentSizedItems ? CalculateExtentForSameSizedItems() : CalculateExtentForDifferentSizedItems();
             if (extent != Extent)
             {
                 Extent = extent;
@@ -679,8 +681,8 @@ namespace WpfToolkit.Controls
         private Size CalculateExtentForSameSizedItems()
         {
             var itemSize = ItemSize != Size.Empty ? ItemSize : sizeOfFirstItem!.Value;
-            int itemsPerRow = (int)Math.Max(1, Math.Floor(GetWidth(ViewportSize) / GetWidth(itemSize)));
-            double extentY = Math.Ceiling(((double)Items.Count) / itemsPerRow) * GetHeight(itemSize);
+            var itemsPerRow = (int)Math.Max(1, Math.Floor(GetWidth(ViewportSize) / GetWidth(itemSize)));
+            var extentY = Math.Ceiling(((double)Items.Count) / itemsPerRow) * GetHeight(itemSize);
             return CreateSize(knownExtendX, extentY);
         }
 
@@ -692,7 +694,7 @@ namespace WpfToolkit.Controls
 
             foreach (var item in Items)
             {
-                Size itemSize = GetAssumedItemSize(item);
+                var itemSize = GetAssumedItemSize(item);
 
                 if (x + GetWidth(itemSize) > GetWidth(ViewportSize) && x != 0)
                 {
@@ -709,8 +711,8 @@ namespace WpfToolkit.Controls
 
         private Size CalculateDesiredSize(Size availableSize)
         {
-            double desiredWidth = Math.Min(availableSize.Width, Extent.Width);
-            double desiredHeight = Math.Min(availableSize.Height, Extent.Height);
+            var desiredWidth = Math.Min(availableSize.Width, Extent.Width);
+            var desiredHeight = Math.Min(availableSize.Height, Extent.Height);
 
             if (ItemsOwner is IHierarchicalVirtualizationAndScrollInfo)
             {
@@ -767,34 +769,18 @@ namespace WpfToolkit.Controls
 
         private Size? GetUpfrontKnownItemSize(object item)
         {
-            if (ItemSize != Size.Empty)
-            {
-                return ItemSize;
-            }
-            if (!AllowDifferentSizedItems && sizeOfFirstItem != null)
-            {
-                return sizeOfFirstItem;
-            }
-            if (ItemSizeProvider != null)
-            {
-                return ItemSizeProvider.GetSizeForItem(item);
-            }
-            return null;
+            return ItemSize != Size.Empty
+                ? ItemSize
+                : !AllowDifferentSizedItems && sizeOfFirstItem != null
+                ? sizeOfFirstItem
+                : ItemSizeProvider != null ? ItemSizeProvider.GetSizeForItem(item) : null;
         }
 
         private Size GetAssumedItemSize(object item)
         {
-            if (GetUpfrontKnownItemSize(item) is Size upfrontKnownItemSize)
-            {
-                return upfrontKnownItemSize;
-            }
-
-            if (itemSizesCache.TryGetValue(item, out Size cachedItemSize))
-            {
-                return cachedItemSize;
-            }
-
-            return GetAverageItemSize();
+            return GetUpfrontKnownItemSize(item) is Size upfrontKnownItemSize
+                ? upfrontKnownItemSize
+                : itemSizesCache.TryGetValue(item, out var cachedItemSize) ? cachedItemSize : GetAverageItemSize();
         }
 
         private void ArrangeRow(double rowWidth, List<UIElement> children, List<Size> childSizes, double y, bool hierarchical, bool lastRow)
@@ -803,28 +789,28 @@ namespace WpfToolkit.Controls
             double extraWidth = 0;
             double startOffset = 0;
 
-            double actualSummedUpChildWidth = childSizes.Sum(childSize => GetWidth(childSize));
+            var actualSummedUpChildWidth = childSizes.Sum(childSize => GetWidth(childSize));
             if (AllowDifferentSizedItems)
             {
                 summedUpChildWidth = childSizes.Sum(childSize => GetWidth(childSize));
 
                 if (StretchItems)
                 {
-                    double unusedWidth = rowWidth - summedUpChildWidth;
+                    var unusedWidth = rowWidth - summedUpChildWidth;
                     extraWidth = unusedWidth / children.Count;
                     summedUpChildWidth = rowWidth;
                 }
             }
             else
             {
-                double childWidth = GetWidth(childSizes[0]);
-                int itemsPerRow = IsGridLayoutEnabled ? (int)Math.Max(Math.Floor(rowWidth / childWidth), 1) : children.Count;
+                var childWidth = GetWidth(childSizes[0]);
+                var itemsPerRow = IsGridLayoutEnabled ? (int)Math.Max(Math.Floor(rowWidth / childWidth), 1) : children.Count;
 
                 if (StretchItems)
                 {
                     var firstChild = (FrameworkElement)children[0];
-                    double maxWidth = Orientation == Orientation.Horizontal ? firstChild.MaxWidth : firstChild.MaxHeight;
-                    double stretchedChildWidth = Math.Min(rowWidth / itemsPerRow, maxWidth);
+                    var maxWidth = Orientation == Orientation.Horizontal ? firstChild.MaxWidth : firstChild.MaxHeight;
+                    var stretchedChildWidth = Math.Min(rowWidth / itemsPerRow, maxWidth);
                     stretchedChildWidth = Math.Max(stretchedChildWidth, childWidth); // ItemSize might be greater than MaxWidth/MaxHeight
                     extraWidth = stretchedChildWidth - childWidth;
                     summedUpChildWidth = itemsPerRow * stretchedChildWidth;
@@ -843,8 +829,8 @@ namespace WpfToolkit.Controls
 
             if (summedUpChildWidth < rowWidth && ((lastRow && HorizontalAlignmentForAllowDifferentSized == HorizontalAlignment.Stretch) || !lastRow))
             {
-                double tempSummedUpChildWidth = summedUpChildWidth;
-                bool allowDifferentSizedItems = AllowDifferentSizedItems;
+                var tempSummedUpChildWidth = summedUpChildWidth;
+                var allowDifferentSizedItems = AllowDifferentSizedItems;
                 if (lastRow && HorizontalAlignmentForAllowDifferentSized == HorizontalAlignment.Stretch)
                 {
                     tempSummedUpChildWidth = actualSummedUpChildWidth;
@@ -867,12 +853,12 @@ namespace WpfToolkit.Controls
                 }
             }
 
-            double x = (hierarchical ? 0 : -GetX(ScrollOffset)) + outerSpacing;
+            var x = (hierarchical ? 0 : -GetX(ScrollOffset)) + outerSpacing;
 
-            for (int i = 0; i < children.Count; i++)
+            for (var i = 0; i < children.Count; i++)
             {
                 var child = children[i];
-                Size childSize = childSizes[i];
+                var childSize = childSizes[i];
                 child.Arrange(CreateRect(x + startOffset, y, GetWidth(childSize) + extraWidth, GetHeight(childSize)));
                 x += GetWidth(childSize) + extraWidth + innerSpacing;
             }
@@ -880,18 +866,10 @@ namespace WpfToolkit.Controls
 
         private void CalculateRowSpacing(double rowWidth, List<UIElement> children, double summedUpChildWidth, bool allowDifferentSizedItems, out double innerSpacing, out double outerSpacing)
         {
-            int childCount;
-
-            if (allowDifferentSizedItems)
-            {
-                childCount = children.Count;
-            }
-            else
-            {
-                childCount = IsGridLayoutEnabled ? (int)Math.Max(1, Math.Floor(rowWidth / GetWidth(sizeOfFirstItem!.Value))) : children.Count;
-            }
-
-            double unusedWidth = Math.Max(0, rowWidth - summedUpChildWidth);
+            var childCount = allowDifferentSizedItems
+                ? children.Count
+                : IsGridLayoutEnabled ? (int)Math.Max(1, Math.Floor(rowWidth / GetWidth(sizeOfFirstItem!.Value))) : children.Count;
+            var unusedWidth = Math.Max(0, rowWidth - summedUpChildWidth);
 
             switch (SpacingMode)
             {
@@ -919,13 +897,11 @@ namespace WpfToolkit.Controls
 
         private Size CalculateAverageItemSize()
         {
-            if (itemSizesCache.Values.Count > 0)
-            {
-                return new Size(
+            return itemSizesCache.Values.Count > 0
+                ? new Size(
                     Math.Round(itemSizesCache.Values.Average(size => size.Width)),
-                    Math.Round(itemSizesCache.Values.Average(size => size.Height)));
-            }
-            return FallbackItemSize;
+                    Math.Round(itemSizesCache.Values.Average(size => size.Height)))
+                : FallbackItemSize;
         }
 
         #region scroll info

@@ -22,7 +22,7 @@
     </ItemGroup>
 
     <PropertyGroup>
-        <PackageId>VirtualizingWrapPanel</PackageId>
+        <PackageId>Fernico-VirtualizingWrapPanel</PackageId>
 
         <RepositoryType>git</RepositoryType>
         <RepositoryUrl>https://github.com/sbaeumlisberger/VirtualizingWrapPanel</RepositoryUrl>
