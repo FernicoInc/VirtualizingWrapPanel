@@ -26,6 +26,8 @@ namespace WpfToolkit.Controls
 
         public static readonly DependencyProperty StretchItemsProperty = DependencyProperty.Register(nameof(StretchItems), typeof(bool), typeof(VirtualizingWrapPanel), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsArrange));
 
+        public static readonly DependencyProperty IsGridLayoutEnabledProperty = DependencyProperty.Register(nameof(IsGridLayoutEnabled), typeof(bool), typeof(VirtualizingWrapPanel), new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsArrange));
+
         /// <summary>
         /// Gets or sets a value that specifies the orientation in which items are arranged before wrapping. The default value is <see cref="Orientation.Horizontal"/>.
         /// </summary>
@@ -63,6 +65,17 @@ namespace WpfToolkit.Controls
         /// In this case the use of the remaining space will be determined by the SpacingMode property. 
         /// </remarks>
         public bool StretchItems { get => (bool)GetValue(StretchItemsProperty); set => SetValue(StretchItemsProperty, value); }
+
+        /// <summary>
+        /// Specifies whether the items are arranged in a grid-like layout. The default value is <c>true</c>.
+        /// When set to <c>true</c>, the items are arranged based on the number of items that can fit in a row. 
+        /// When set to <c>false</c>, the items are arranged based on the number of items that are actually placed in the row. 
+        /// </summary>
+        /// <remarks>
+        /// If <see cref="AllowDifferentSizedItems"/> is enabled, this property has no effect and the items are always 
+        /// arranged based on the number of items that are actually placed in the row.
+        /// </remarks>
+        public bool IsGridLayoutEnabled { get => (bool)GetValue(IsGridLayoutEnabledProperty); set => SetValue(IsGridLayoutEnabledProperty, value); }
 
         /// <summary>
         /// Gets value that indicates whether the <see cref="VirtualizingPanel"/> can virtualize items 
@@ -162,31 +175,18 @@ namespace WpfToolkit.Controls
             RealizeAndVirtualizeItems();
             UpdateExtent();
 
+            const double Tolerance = 0.001;
+
             if (ItemsOwner is not IHierarchicalVirtualizationAndScrollInfo
                 && GetY(ScrollOffset) != 0
-                && GetY(ScrollOffset) + GetHeight(ViewportSize) > GetHeight(Extent))
+                && GetY(ScrollOffset) + GetHeight(ViewportSize) > GetHeight(Extent) + Tolerance)
             {
                 ScrollOffset = CreatePoint(GetX(ScrollOffset), Math.Max(0, GetHeight(Extent) - GetHeight(ViewportSize)));
                 ScrollOwner?.InvalidateScrollInfo();
                 return MeasureOverride(availableSize); // repeat measure with correct ScrollOffset
             }
 
-            double desiredWidth = Math.Min(availableSize.Width, Extent.Width);
-            double desiredHeight = Math.Min(availableSize.Height, Extent.Height);
-
-            if (ItemsOwner is IHierarchicalVirtualizationAndScrollInfo)
-            {
-                if (Orientation == Orientation.Horizontal)
-                {
-                    desiredWidth = Math.Max(desiredWidth, newViewportSize.Width);
-                }
-                else
-                {
-                    desiredHeight = Math.Max(desiredHeight, newViewportSize.Height);
-                }
-            }
-
-            return new Size(desiredWidth, desiredHeight);
+            return CalculateDesiredSize(availableSize);
         }
 
         protected override Size ArrangeOverride(Size finalSize)
@@ -203,6 +203,11 @@ namespace WpfToolkit.Controls
             if (startItemIndex == -1)
             {
                 return finalSize;
+            }
+
+            if (ItemContainerManager.RealizedContainers.Count < endItemIndex - startItemIndex + 1)
+            {
+                throw new InvalidOperationException("Items must be distinct");
             }
 
             bool hierarchical = ItemsOwner is IHierarchicalVirtualizationAndScrollInfo;
@@ -262,6 +267,12 @@ namespace WpfToolkit.Controls
             UpdateLayout();
 
             container.BringIntoView();
+        }
+
+        protected override void OnClearChildren()
+        {
+            ItemContainerManager.OnClearChildren();
+            base.OnClearChildren();
         }
 
         private void ItemContainerManager_ItemsChanged(object? sender, ItemContainerManagerItemsChangedEventArgs e)
@@ -343,7 +354,7 @@ namespace WpfToolkit.Controls
                 double visibleHeaderHeight = Math.Max(0, groupItem.HeaderDesiredSizes.PixelSize.Height - Math.Max(0, groupItem.Constraints.Viewport.Location.Y));
                 viewporteHeight = Math.Max(0, viewporteHeight - visibleHeaderHeight);
             }
-            else 
+            else
             {
                 viewporteHeight = Math.Max(0, viewporteHeight - groupItem.HeaderDesiredSizes.PixelSize.Height);
             }
@@ -669,6 +680,7 @@ namespace WpfToolkit.Controls
             double x = 0;
             double y = 0;
             double rowHeight = 0;
+
             foreach (var item in Items)
             {
                 Size itemSize = GetAssumedItemSize(item);
@@ -682,8 +694,34 @@ namespace WpfToolkit.Controls
                 x += GetWidth(itemSize);
                 rowHeight = Math.Max(rowHeight, GetHeight(itemSize));
             }
-          
+
             return CreateSize(knownExtendX, y + rowHeight);
+        }
+
+        private Size CalculateDesiredSize(Size availableSize)
+        {
+            double desiredWidth = Math.Min(availableSize.Width, Extent.Width);
+            double desiredHeight = Math.Min(availableSize.Height, Extent.Height);
+
+            if (ItemsOwner is IHierarchicalVirtualizationAndScrollInfo)
+            {
+                if (Orientation == Orientation.Horizontal)
+                {
+                    if (!double.IsPositiveInfinity(ViewportSize.Width))
+                    {
+                        desiredWidth = Math.Max(desiredWidth, ViewportSize.Width);
+                    }
+                }
+                else
+                {
+                    if (!double.IsPositiveInfinity(ViewportSize.Height))
+                    {
+                        desiredHeight = Math.Max(desiredHeight, ViewportSize.Height);
+                    }
+                }
+            }
+
+            return new Size(desiredWidth, desiredHeight);
         }
 
         private double DetermineStartOffsetY()
@@ -769,7 +807,7 @@ namespace WpfToolkit.Controls
             else
             {
                 double childWidth = GetWidth(childSizes[0]);
-                int itemsPerRow = (int)Math.Max(Math.Floor(rowWidth / childWidth), 1);
+                int itemsPerRow = IsGridLayoutEnabled ? (int)Math.Max(Math.Floor(rowWidth / childWidth), 1) : children.Count;
 
                 if (StretchItems)
                 {
@@ -794,7 +832,7 @@ namespace WpfToolkit.Controls
                 CalculateRowSpacing(rowWidth, children, summedUpChildWidth, out innerSpacing, out outerSpacing);
             }
 
-            double x = hierarchical ? outerSpacing : -GetX(ScrollOffset) + outerSpacing;
+            double x = (hierarchical ? 0 : -GetX(ScrollOffset)) + outerSpacing;
 
             for (int i = 0; i < children.Count; i++)
             {
@@ -815,7 +853,7 @@ namespace WpfToolkit.Controls
             }
             else
             {
-                childCount = (int)Math.Max(1, Math.Floor(rowWidth / GetWidth(sizeOfFirstItem!.Value)));
+                childCount = IsGridLayoutEnabled ? (int)Math.Max(1, Math.Floor(rowWidth / GetWidth(sizeOfFirstItem!.Value))) : children.Count;
             }
 
             double unusedWidth = Math.Max(0, rowWidth - summedUpChildWidth);

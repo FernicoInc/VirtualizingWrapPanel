@@ -1,17 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows;
-using WpfToolkit.Controls;
-using System.Xml;
-using System.Windows.Markup;
-using Assert = Xunit.Assert;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.ObjectModel;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Markup;
+using System.Windows.Media;
+using System.Xml;
+using WpfToolkit.Controls;
+using Assert = Xunit.Assert;
 
 namespace VirtualizingWrapPanelTest;
 
@@ -25,10 +20,17 @@ internal class TestUtil
     public static VirtualizingWrapPanel CreateVirtualizingWrapPanel(
         double width,
         double height,
-        IEnumerable? items = null,
         int itemCount = 1000)
     {
-        var itemsControl = CreateVirtualizingItemsControl(width, height, items ?? GenerateItems(itemCount));
+        return CreateVirtualizingWrapPanel(width, height, GenerateItems(itemCount));
+    }
+
+    public static VirtualizingWrapPanel CreateVirtualizingWrapPanel(
+        double width,
+        double height,
+        IEnumerable items)
+    {
+        var itemsControl = CreateVirtualizingItemsControl(width, height, items);
         return GetVisualChild<VirtualizingWrapPanel>(itemsControl)!;
     }
 
@@ -54,9 +56,9 @@ internal class TestUtil
 
     private static void SetupAndShowItemsControl(
         ItemsControl itemsControl,
-       double width,
-       double height,
-       IEnumerable items)
+        double width,
+        double height,
+        IEnumerable items)
     {
         ScrollViewer.SetVerticalScrollBarVisibility(itemsControl, ScrollBarVisibility.Hidden);
         ScrollViewer.SetHorizontalScrollBarVisibility(itemsControl, ScrollBarVisibility.Hidden);

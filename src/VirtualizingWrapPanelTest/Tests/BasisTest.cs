@@ -1,15 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Markup;
-using System.Windows.Media;
-using System.Xml;
 using WpfToolkit.Controls;
 using Xunit;
 using Assert = Xunit.Assert;
@@ -459,6 +450,18 @@ public class BasisTest
 
         Assert.Empty(vwp.Children);
         Assert.Equal(0, vwp.ExtentHeight);
+    }
+
+    [WpfFact]
+    public void ThrowsExceptionWhenItemsAreNotDistinct()
+    {
+        var items = Enumerable.Repeat(new TestItem("TestItem", 100, 100), 100).ToList();
+
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            vwp = TestUtil.CreateVirtualizingWrapPanel(500, 400, items);
+            vwp.UpdateLayout();
+        });
     }
 
     // TODO test items changes: add, replace, remove mutiple items
