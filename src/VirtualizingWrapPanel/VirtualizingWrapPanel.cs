@@ -273,7 +273,11 @@ namespace WpfToolkit.Controls
                 throw new ArgumentOutOfRangeException(nameof(index), $"The argument {nameof(index)} must be >= 0 and < the count of items.");
             }
 
-            var container = (FrameworkElement)ItemContainerManager.Realize(index);
+            var container = ItemContainerManager.Realize(index) as FrameworkElement;
+            if (container is null)
+            {
+                return;
+            }
 
             bringIntoViewItemIndex = index;
             bringIntoViewContainer = container;
@@ -574,6 +578,10 @@ namespace WpfToolkit.Controls
                 var item = Items[itemIndex];
 
                 var container = ItemContainerManager.Realize(itemIndex);
+                if (container is null)
+                {
+                    return;
+                }
 
                 if (container == bringIntoViewContainer)
                 {

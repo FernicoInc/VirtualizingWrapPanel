@@ -87,6 +87,11 @@ internal class ItemContainerManager
         {
             var container = (UIElement)recyclingItemContainerGenerator.GenerateNext(out var isNewContainer);
 
+            if (container is null)
+            {
+                return null;
+            }
+
             cachedContainers.Remove(container);
             realizedContainers.Add(item, container);
 
@@ -191,6 +196,11 @@ internal class ItemContainerManager
 
     private static void InvalidateMeasureRecursively(UIElement element)
     {
+        if (element is null)
+        {
+            return;
+        }
+
         element.InvalidateMeasure();
 
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(element); i++)
